@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple E-Commerce Front-End</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+  <!-- Formulaire pour ajouter un produit -->
+  <h2>Ajouter un produit</h2>
+  <form id="addProductForm">
+    <div class="form-group">
+      <label for="name">Nom</label>
+      <input type="text" class="form-control" id="name" placeholder="Nom du produit">
+    </div>
+    <div class="form-group">
+      <label for="description">Description</label>
+      <input type="text" class="form-control" id="description" placeholder="Description">
+    </div>
+    <div class="form-group">
+      <label for="price">Prix</label>
+      <input type="number" class="form-control" id="price" placeholder="Prix">
+    </div>
+    <div class="form-group">
+      <label for="category">Catégorie</label>
+      <input type="text" class="form-control" id="category" placeholder="Catégorie">
+    </div>
+    <button type="submit" class="btn btn-primary">Ajouter le produit</button>
+  </form>
+
+  <hr>
+
+  <!-- Liste des produits -->
+  <h2>Produits disponibles</h2>
+  <ul id="productsList" class="list-group"></ul>
+
+  <hr>
+
+  <!-- Panier -->
+  <h2>Mon Panier</h2>
+  <ul id="cartList" class="list-group"></ul>
+  <button class="btn btn-success mt-3" onclick="placeOrder()">Passer la commande</button>
+</div>
+
+<!-- Formulaire de modification (caché par défaut) -->
+<div id="editProductForm" class="container mt-5" style="display: none;">
+  <h2>Modifier un produit</h2>
+  <form id="modifyProductForm">
+    <div class="form-group">
+      <label for="editName">Nom</label>
+      <input type="text" class="form-control" id="editName" placeholder="Nom du produit">
+    </div>
+    <div class="form-group">
+      <label for="editDescription">Description</label>
+      <input type="text" class="form-control" id="editDescription" placeholder="Description">
+    </div>
+    <div class="form-group">
+      <label for="editPrice">Prix</label>
+      <input type="number" class="form-control" id="editPrice" placeholder="Prix">
+    </div>
+    <div class="form-group">
+      <label for="editCategory">Catégorie</label>
+      <input type="text" class="form-control" id="editCategory" placeholder="Catégorie">
+    </div>
+    <button type="submit" class="btn btn-warning">Modifier le produit</button>
+    <button type="button" class="btn btn-secondary ml-2" onclick="cancelEdit()">Annuler</button>
+  </form>
+</div>
+
+<script>
+  const apiUrl = 'http://localhost:5000/products';
+  const cartApiUrl = 'http://localhost:5000/cart/1'; // Panier de l'utilisateur 1
+  let currentProductId = null;
+
+  // Récupérer tous les produits
+  function getProducts() {
+    fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+              const productsList = document.getElementById('productsList');
+              productsList.innerHTML = ''; // Vider la liste avant de la remplir
+              data.forEach(product => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('list-group-item');
+                listItem.innerHTML = `${product.name} - ${product.price}€
+                                      <button class="btn btn-danger btn-sm float-right" onclick="deleteProduct('${product._id}')">Supprimer</button>
+                                      <button class="btn btn-warning btn-sm float-right mr-2" onclick="editProduct('${product._id}')">Modifier</button>
+                                      <button class="btn btn-success btn-sm float-right mr-2" onclick="addToCart('${product._id}')">Ajouter au panier</button>`;
+                productsList.appendChild(listItem);
+              });
+            })
+            .catch(error => console.log('Erreur de récupération des produits:', error));
+  }
+
+  // Ajouter un produit
+  document.getElementById('addProductForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const name = document.getElementById('name').value;
+    const description = document.getElementById('description').value;
+    const price = document.getElementById('price').value;
+    const category = document.getElementById('category').value;
+
+    const productData = {
+      name,
+      description,
+      price: parseFloat(price),
+      category
+    };
+
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(productData)
+    })
+            .then(response => response.json())
+            .then(data => {
+              console.log('Produit ajouté:', data);
+              getProducts(); // Recharger la liste des produits
+            })
+            .catch(error => console.log('Erreur lors de l\'ajout du produit:', error));
+  });
+
+  // Supprimer un produit
+  function deleteProduct(productId) {
+    fetch(`${apiUrl}/${productId}`, {
+      method: 'DELETE'
+    })
+            .then(response => response.json())
+            .then(data => {
+              console.log('Produit supprimé:', data);
+              getProducts(); // Recharger la liste des produits
+            })
+            .catch(error => console.log('Erreur lors de la suppression du produit:', error));
+  }
+
+  // Modifier un produit
+  function editProduct(productId) {
+    fetch(`${apiUrl}/${productId}`)
+            .then(response => response.json())
+            .then(product => {
+              // Remplir le formulaire de modification avec les valeurs actuelles du produit
+              document.getElementById('editName').value = product.name;
+              document.getElementById('editDescription').value = product.description;
+              document.getElementById('editPrice').value = product.price;
+              document.getElementById('editCategory').value = product.category;
+
+              // Cacher la liste des produits et afficher le formulaire de modification
+              document.getElementById('productsList').style.display = 'none';
+              document.getElementById('editProductForm').style.display = 'block';
+
+              // Enregistrer l'ID du produit à modifier
+              currentProductId = productId;
+            })
+            .catch(error => console.log('Erreur lors de la récupération du produit:', error));
+  }
+
+  // Soumettre la modification du produit
+  document.getElementById('modifyProductForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const name = document.getElementById('editName').value;
+    const description = document.getElementById('editDescription').value;
+    const price = document.getElementById('editPrice').value;
+    const category = document.getElementById('editCategory').value;
+
+    const productData = {
+      name,
+      description,
+      price: parseFloat(price),
+      category
+    };
+
+    fetch(`${apiUrl}/${currentProductId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(productData)
+    })
+            .then(response => response.json())
+            .then(data => {
+              console.log('Produit modifié:', data);
+              getProducts(); // Recharger la liste des produits
+              cancelEdit(); // Annuler le formulaire de modification
+            })
+            .catch(error => console.log('Erreur lors de la modification du produit:', error));
+  });
+
+  // Annuler la modification du produit
+  function cancelEdit() {
+    document.getElementById('editProductForm').style.display = 'none';
+    document.getElementById('productsList').style.display = 'block';
+  }
+
+  // Ajouter un produit au panier
+  function addToCart(productId) {
+    fetch(cartApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ productId, quantity: 1 })
+    })
+            .then(response => response.json())
+            .then(data => {
+              console.log('Produit ajouté au panier:', data);
+              getCart(); // Recharger le panier
+            })
+            .catch(error => console.log('Erreur lors de l\'ajout au panier:', error));
+  }
+
+  // Récupérer le panier de l'utilisateur
+  function getCart() {
+    fetch(cartApiUrl)
+            .then(response => response.json())
+            .then(data => {
+              const cartList = document.getElementById('cartList');
+              cartList.innerHTML = ''; // Vider le panier avant de le remplir
+              if (data && data.products) {
+                data.products.forEach(item => {
+                  const listItem = document.createElement('li');
+                  listItem.classList.add('list-group-item');
+                  listItem.innerHTML = `${item.name} - Quantité: ${item.quantity} <button class="btn btn-danger btn-sm float-right" onclick="removeFromCart('${item.productId}')">Supprimer</button>`;
+                  cartList.appendChild(listItem);
+                });
+              } else {
+                cartList.innerHTML = '<li class="list-group-item">Le panier est vide.</li>';
+              }
+            })
+            .catch(error => console.log('Erreur lors de la récupération du panier:', error));
+  }
+
+  // Supprimer un produit du panier
+  function removeFromCart(productId) {
+    fetch(`${cartApiUrl}/item/${productId}`, {
+      method: 'DELETE'
+    })
+            .then(response => response.json())
+            .then(data => {
+              console.log('Produit supprimé du panier:', data);
+              getCart(); // Recharger le panier
+            })
+            .catch(error => console.log('Erreur lors de la suppression du produit du panier:', error));
+  }
+
+  // Passer une commande
+  function placeOrder() {
+    fetch(`${cartApiUrl}/order`, {
+      method: 'POST',
+    })
+            .then(response => response.json())
+            .then(data => {
+              alert('Commande passée avec succès !');
+              getCart(); // Recharger le panier après la commande
+            })
+            .catch(error => console.log('Erreur lors de la commande:', error));
+  }
+
+  // Initialisation des produits et panier
+  getProducts();
+  getCart();
+</script>
+</body>
+</html>
+
+
